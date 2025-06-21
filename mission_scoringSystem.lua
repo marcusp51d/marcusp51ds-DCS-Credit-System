@@ -1,10 +1,10 @@
 local folderName = "mission1Scores"
-local save_interval = 25 --seconds
-debugger_logging = false
+local save_interval = 15 --seconds
+debugger_logging = true
 
 
-base_score = 10
-kill_player_score = 10
+base_score = 50
+kill_player_score = 25
 
 
 
@@ -44,8 +44,6 @@ playerstatus = {}
 
 
 
-
-
 vehicle_kill_values = {
     ["unit name"] = 5
 }
@@ -60,18 +58,16 @@ dofile(priceFilePath)
 local currentPrices = _G.sale_weapons
 local current_credits = _G.scores
 
-function displayLoadoutCost(triggerUnit)
+    function displayLoadoutCost(triggerUnit)
     chatlog("attempting to display loadout costs")
+    
     local UnitName = triggerUnit:GetName()
     local PlayerClient = CLIENT:FindByName(UnitName)
     local PlayerName = triggerUnit:GetPlayerName()
-    local PlayerUCID = PlayerClient:GetUCID()
-    while PlayerUCID == nil do
-        PlayerUCID = PlayerClient:GetUCID()
-    end
-    PlayerUCID = tostring(PlayerUCID)
+    local ClitentName = PlayerClient:GetName()
+    local player_net = NET:New()
+    local PlayerUCID = player_net:GetPlayerUCID(PlayerClient)
 
-    
 
 
 
@@ -90,7 +86,7 @@ function displayLoadoutCost(triggerUnit)
             end
             totalCost = totalCost + weapon_cost
             chatMsg = chatMsg..tostring(weaponCount).." "..weaponName.." will cost "..tostring(weapon_cost).."\n"
-
+            
         end
     end
     if playerstatus[PlayerUCID] == true then
@@ -105,7 +101,7 @@ function displayLoadoutCost(triggerUnit)
             local new = MESSAGE:New(chatMsg, 35)
             new:ToClient(PlayerClient)
         end
-    
+
     else
         chatlog("player is not on ground")
         local new = MESSAGE:New(chatMsg, 35)
@@ -114,35 +110,35 @@ function displayLoadoutCost(triggerUnit)
 end
 
 function displayCredits(triggerUnit)
-    chatlog("player is displaying current balance")
+    --chatlog("player is displaying current balance")
     local UnitName = triggerUnit:GetName()
     local PlayerClient = CLIENT:FindByName(UnitName)
     local PlayerName = triggerUnit:GetPlayerName()
-    local PlayerUCID = PlayerClient:GetUCID()
-    while PlayerUCID == nil do
-        PlayerUCID = PlayerClient:GetUCID()
-    end
+    local ClitentName = PlayerClient:GetName()
+    local player_net = NET:New()
+    local PlayerUCID = player_net:GetPlayerUCID(PlayerClient)
 
 
     local new = MESSAGE:New("you currently have "..tostring(current_credits[PlayerUCID]).." credits", 20)
     new:ToClient(PlayerClient)
 end
 
+local creditMenus = {}
+
+
 function CreatePlayerMenu(PlayerUnit)
     local PlayerGroup = PlayerUnit:GetGroup()
+    local GroupName = PlayerGroup:GetName()
 
-    -- Remove any existing menu to prevent duplication
-    if PlayerGroup.CreditMenu then
-        PlayerGroup.CreditMenu:Remove()
+    if creditMenus[GroupName] then
+        creditMenus[GroupName]:Remove()
     end
-      
-    PlayerGroup.CreditMenu = MENU_GROUP:New(PlayerGroup, "Credit System")
-      
 
-    -- Add test message options inside the "Credit System" menu
-    MENU_GROUP_COMMAND:New(PlayerGroup, "Current loadout cost", PlayerGroup.Menu, displayLoadoutCost, PlayerUnit)
-    MENU_GROUP_COMMAND:New(PlayerGroup, "Credit balance", PlayerGroup.Menu, displayCredits, PlayerUnit)
+    creditMenus[GroupName] = MENU_GROUP:New(PlayerGroup, "Credit System")
+    MENU_GROUP_COMMAND:New(PlayerGroup, "Current loadout cost", creditMenus[GroupName], displayLoadoutCost, PlayerUnit)
+    MENU_GROUP_COMMAND:New(PlayerGroup, "Credit balance", creditMenus[GroupName], displayCredits, PlayerUnit)
 end
+
 
 function saveScore(scores)
     local file = io.open(filePath, "w")
@@ -163,12 +159,19 @@ PlayerEnterUnitHandler = EVENTHANDLER:New()
 function PlayerEnterUnitHandler:OnEventPlayerEnterAircraft(EventData)
     --chat("player spawned")
     if EventData.IniUnit then
-        
+
         local PlayerUnit = EventData.IniUnit
         local UnitName = PlayerUnit:GetName()
         local PlayerClient = CLIENT:FindByName(UnitName)
         local PlayerName = PlayerUnit:GetPlayerName()
-        local PlayerUCID = tostring(PlayerClient:GetUCID())
+        local ClitentName = PlayerClient:GetName()
+        local player_net = NET:New()
+        local PlayerUCID = player_net:GetPlayerUCID(PlayerClient)
+
+        while PlayerUCID == nil do
+        PlayerUCID = PlayerClient:GetUCID()
+        end
+        PlayerUCID = tostring(PlayerUCID)
         local totalCost = 0
         playerstatus[PlayerUCID] = true
         CreatePlayerMenu(PlayerUnit)
@@ -243,7 +246,7 @@ function PlayerEnterUnitHandler:OnEventPlayerEnterAircraft(EventData)
                 while weapons == nil do
                     weapons = PlayerUnit:GetAmmo()
                 end
-                local chatmsg = "you landed with:"
+                local chatmsg = "you landed with:\n"
                 totalCost = 0
                 for _, weapon in pairs(weapons) do
                     if weapon.desc and weapon.desc.displayName then
@@ -268,6 +271,7 @@ function PlayerEnterUnitHandler:OnEventPlayerEnterAircraft(EventData)
         KillHandler = EVENTHANDLER:New()
 
         function KillHandler:OnEventKill(EventData)
+            chatlog("unit killed")
                 local killer = EventData.IniPlayerName
                 local target = EventData.TgtTypeName
 
@@ -282,7 +286,7 @@ function PlayerEnterUnitHandler:OnEventPlayerEnterAircraft(EventData)
 
                     end
                 end
- 
+
         end
 
         KillHandler:HandleEvent(EVENTS.Kill)
